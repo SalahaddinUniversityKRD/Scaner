@@ -3,321 +3,171 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>زانکۆی سەلاحەدین - سیستەمی وەرگرتنی قوتابیان</title>
+    <title>زانکۆی سەلاحەدین - سکانەری زیرەک</title>
+    <script async src="https://docs.opencv.org/4.5.4/opencv.js" onload="onOpenCvReady();"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root {
-            --blob-1: #ff0080;
-            --blob-2: #00f0ff;
-            --blob-3: #7000ff;
-            --blob-4: #ffcc00;
-        }
-
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #050510;
-            overflow-x: hidden;
-            font-family: 'Inter', Tahoma, Arial, sans-serif;
-        }
-
-        /* باکگراوندی جووڵاو */
-        .fluid-bg {
-            position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            overflow: hidden; z-index: 0;
-            filter: blur(100px); 
-            transform: translate3d(0, 0, 0);
-        }
-
-        .blob {
-            position: absolute; border-radius: 50%; mix-blend-mode: screen;
-            opacity: 0.8; animation: move-slow motion 20s infinite alternate ease-in-out;
-            will-change: transform;
-        }
-
-        .blob-1 { width: 60vw; height: 60vw; background: radial-gradient(circle, var(--blob-1) 0%, rgba(255,0,128,0) 70%); top: -10%; left: -10%; animation: float-1 25s infinite alternate ease-in-out; }
-        .blob-2 { width: 50vw; height: 50vw; background: radial-gradient(circle, var(--blob-2) 0%, rgba(0,240,255,0) 70%); bottom: -20%; right: -10%; animation: float-2 22s infinite alternate ease-in-out; }
-        .blob-3 { width: 70vw; height: 70vw; background: radial-gradient(circle, var(--blob-3) 0%, rgba(112,0,255,0) 70%); bottom: -30%; left: -20%; animation: float-3 28s infinite alternate ease-in-out; }
-        .blob-4 { width: 40vw; height: 40vw; background: radial-gradient(circle, var(--blob-4) 0%, rgba(255,204,0,0) 70%); top: 20%; right: 10%; animation: float-4 18s infinite alternate ease-in-out; }
-
-        @keyframes float-1 { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(15vw, -5vh) scale(1.05); } }
-        @keyframes float-2 { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(-10vw, -10vh) scale(1.1); } }
-        @keyframes float-3 { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(-5vw, -5vh) scale(1); } }
-        @keyframes float-4 { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(5vw, 15vh) scale(1.05); } }
-
-        /* دیزاینی شووشەیی (Glassmorphism) */
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-            position: relative; overflow: hidden;
-        }
-
-        .btn-glass { transition: all 0.3s ease; }
-        .btn-glass:hover { transform: translateY(-2px); box-shadow: 0 10px 40px -10px rgba(255,255,255,0.2); }
-
-        /* چوارچێوەی سکانەر */
-        #scanner-frame { transition: border-color 0.3s ease; }
-        .frame-corner { transition: border-color 0.3s ease; }
+        :root { --blob-1: #ff0080; --blob-2: #00f0ff; }
+        body { background-color: #050510; margin: 0; font-family: sans-serif; overflow: hidden; }
+        .fluid-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; filter: blur(100px); z-index: 0; }
+        .blob { position: absolute; border-radius: 50%; opacity: 0.5; animation: float 20s infinite alternate; }
+        .blob-1 { width: 50vw; height: 50vw; background: var(--blob-1); top: -10%; left: -10%; }
+        .blob-2 { width: 50vw; height: 50vw; background: var(--blob-2); bottom: -10%; right: -10%; }
+        @keyframes float { 0% { transform: translate(0, 0); } 100% { transform: translate(15vw, 15vh); } }
         
-        /* هێڵی پێشکەوتن (Progress Bar) */
-        #progress-bar-container { transition: opacity 0.3s ease; }
-        #progress-bar { transition: width 0.1s linear, background-color 0.3s ease; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        
+        /* هێڵی سکانکردنی جوڵاو */
+        .scanning-line {
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #00f0ff, transparent);
+            position: absolute;
+            width: 100%;
+            z-index: 30;
+            animation: scan 2.5s infinite ease-in-out;
+            box-shadow: 0 0 15px #00f0ff;
+        }
+        @keyframes scan {
+            0% { top: 5%; opacity: 0; }
+            50% { opacity: 1; }
+            100% { top: 95%; opacity: 0; }
+        }
     </style>
 </head>
-<body class="text-white selection:bg-fuchsia-500 selection:text-white">
+<body class="text-white">
+    <div class="fluid-bg"><div class="blob blob-1"></div><div class="blob blob-2"></div></div>
 
-    <div class="fluid-bg">
-        <div class="blob blob-1"></div><div class="blob blob-2"></div>
-        <div class="blob blob-3"></div><div class="blob blob-4"></div>
-    </div>
-
-    <main class="relative z-10 min-h-screen flex flex-col p-4 md:p-8 overflow-hidden">
-        
-        <header class="glass-panel w-full rounded-2xl md:rounded-3xl p-4 flex items-center justify-between z-20">
-            <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-cyan-400 to-amber-400 p-[2px]">
-                    <div class="w-full h-full rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
-                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-                    </div>
-                </div>
-                <div>
-                    <h2 class="text-xl font-bold tracking-wider">زانکۆی سەلاحەدین</h2>
-                    <p class="text-xs text-white/60">کۆلێژی پەروەردە - پڕۆسەی وەرگرتن</p>
-                </div>
+    <main class="relative z-10 h-screen flex flex-col p-6 max-w-2xl mx-auto">
+        <header class="glass rounded-2xl p-4 mb-6 flex justify-between items-center">
+            <div>
+                <h1 class="font-bold text-lg">سکانەری زیرەکی زانکۆ</h1>
+                <p id="cv-status" class="text-[10px] text-yellow-400">خەریکی داگرتنی مۆدێلە (OpenCV)...</p>
             </div>
+            <div id="badge" class="text-xs bg-white/10 px-3 py-1 rounded-full border border-white/20">چاوەڕوانبە</div>
         </header>
 
-        <section class="flex-1 flex flex-col lg:flex-row items-center justify-center gap-8 mt-8 z-10 w-full max-w-6xl mx-auto">
-            
-            <div class="flex-1 flex flex-col items-start space-y-6 w-full">
-                <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-panel border border-white/20 text-xs font-semibold text-cyan-300">
-                    <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span> سیستەمی زیرەک
-                </div>
-                <h1 class="text-4xl md:text-5xl font-bold leading-tight">
-                    سکانکردنی دۆکومێنت بە <br>
-                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-400">ژیرانە.</span>
-                </h1>
-                <p class="text-lg text-white/60 font-light max-w-lg leading-relaxed text-justify">
-                    کامێراکە بکەرەوە و ڕووی بکەرە فۆرمی وەرگرتن یان ناسنامەکەت. سیستەمەکە چاوەڕێ دەکات تا دۆکومێنتەکە بە ڕوونی دەردەکەوێت و دەستت جێگیر دەبێت، پاشان خۆکارانە بە کوالێتی بەرز وێنەکەی دەگرێت.
-                </p>
-                <button id="start-btn" class="btn-glass px-8 py-4 rounded-xl font-semibold bg-white text-black hover:bg-gray-200 flex items-center gap-2">
-                    کردنەوەی کامێرا
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
-                </button>
+        <div class="flex-1 flex flex-col items-center justify-center relative">
+            <div class="glass w-full aspect-[3/4] rounded-3xl overflow-hidden relative border border-white/20 shadow-2xl">
+                <video id="video" class="hidden" playsinline autoplay></video>
+                <canvas id="canvasOutput" class="absolute inset-0 w-full h-full object-cover"></canvas>
+                
+                <div id="scan-line" class="scanning-line hidden"></div>
+                
+                <img id="resultImg" class="absolute inset-0 w-full h-full object-contain hidden z-50 bg-black" />
             </div>
 
-            <div class="flex-1 w-full max-w-md relative" dir="ltr">
-                <div class="glass-panel w-full aspect-[3/4] rounded-3xl p-4 flex flex-col border border-white/20">
-                    
-                    <div class="relative w-full flex-1 rounded-2xl bg-black/60 overflow-hidden flex items-center justify-center">
-                        <video id="camera-feed" class="absolute inset-0 w-full h-full object-cover hidden" playsinline autoplay></video>
-                        
-                        <div id="scanner-frame" class="relative z-10 w-4/5 h-4/5 border-2 border-white/20 hidden">
-                            <div class="frame-corner absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-white/50"></div>
-                            <div class="frame-corner absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-white/50"></div>
-                            <div class="frame-corner absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-white/50"></div>
-                            <div class="frame-corner absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-white/50"></div>
-                        </div>
-
-                        <img id="captured-result" class="absolute inset-0 w-full h-full object-contain hidden z-20 bg-black" />
-
-                        <div class="absolute bottom-6 z-30 flex flex-col items-center w-full px-6 gap-3">
-                            <span id="status-text" class="px-4 py-1.5 rounded-full glass-panel text-sm font-medium text-white hidden bg-black/70 border border-white/10" dir="rtl">
-                                ئامادەکردنی کامێرا...
-                            </span>
-                            
-                            <div id="progress-bar-container" class="w-full h-2 bg-white/10 rounded-full overflow-hidden hidden">
-                                <div id="progress-bar" class="h-full w-0 bg-cyan-400"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
+            <button id="btn" disabled class="mt-8 glass w-full py-4 rounded-2xl font-bold opacity-50 cursor-not-allowed transition-all active:scale-95">
+                تکایە چاوەڕێ بکە...
+            </button>
+        </div>
     </main>
 
     <script>
-        const startBtn = document.getElementById('start-btn');
-        const video = document.getElementById('camera-feed');
-        const frame = document.getElementById('scanner-frame');
-        const corners = document.querySelectorAll('.frame-corner');
-        const statusText = document.getElementById('status-text');
-        const resultImg = document.getElementById('captured-result');
-        const progressBarContainer = document.getElementById('progress-bar-container');
-        const progressBar = document.getElementById('progress-bar');
-        
-        const motionCanvas = document.createElement('canvas');
-        const ctx = motionCanvas.getContext('2d', { willReadFrequently: true });
-        
+        let video = document.getElementById('video');
+        let canvasOutput = document.getElementById('canvasOutput');
+        let status = document.getElementById('cv-status');
+        let btn = document.getElementById('btn');
+        let badge = document.getElementById('badge');
+        let scanLine = document.getElementById('scan-line');
+        let resultImg = document.getElementById('resultImg');
         let stream = null;
-        let isCapturing = false;
-        let previousFrameData = null;
-        let stillnessCounter = 0;
-        let animationId = null;
+        let isProcessing = false;
+        let stillnessFrames = 0;
 
-        // --- ڕێکخستنە سەرەکییەکان (گۆڕدراون بۆ چارەسەری کێشەکان) ---
-        const TARGET_WIDTH = 100; // قەبارەی بچووککراوە بۆ شیکردنەوەی خێرا
-        const MOTION_THRESHOLD = 15; // ئەگەر لەمە زیاتر گۆڕا، واتە دەست دەجوڵێت
-        const CONTRAST_THRESHOLD = 25; // ئەگەر لەمە کەمتر بوو، واتە وەرەقەی لێ نییە (تەنها دیوار یان مێزە)
-        const REQUIRED_FRAMES = 50; // نزیکەی ٢ بۆ ٢.٥ چرکە چاوەڕێ دەکات تا فوکەس جێگیر دەبێت
+        // کاتێک مۆدێلەکە دادەبەزێت
+        function onOpenCvReady() {
+            status.innerText = "سیستەم ئامادەیە";
+            status.classList.replace('text-yellow-400', 'text-green-400');
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            btn.classList.add('bg-white', 'text-black');
+            btn.innerText = "کردنەوەی کامێرا";
+        }
 
-        startBtn.addEventListener('click', async () => {
-            if (isCapturing || stream) {
-                stopCamera();
-            } else {
-                await startCamera();
+        btn.onclick = async () => {
+            if (stream) {
+                location.reload(); // دووبارە دەستپێکردنەوە
+                return;
             }
-        });
-
-        async function startCamera() {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } 
+                    video: { facingMode: 'environment', width: 640, height: 480 } 
                 });
-                
                 video.srcObject = stream;
-                video.classList.remove('hidden');
-                frame.classList.remove('hidden');
-                statusText.classList.remove('hidden');
-                resultImg.classList.add('hidden');
-                progressBarContainer.classList.remove('hidden');
-                
-                startBtn.innerHTML = "وەستاندنی کامێرا";
-                isCapturing = true;
-                stillnessCounter = 0;
-                previousFrameData = null;
-                progressBar.style.width = '0%';
-
-                video.onloadedmetadata = () => {
-                    // دانانی قەبارەی بچووک بۆ شیکردنەوەی پیکسێڵەکان بێ ئەوەی مۆبایلەکە قورس بێت
-                    motionCanvas.width = TARGET_WIDTH;
-                    motionCanvas.height = TARGET_WIDTH * (video.videoHeight / video.videoWidth);
-                    analyzeVideo();
-                };
-
+                video.play();
+                scanLine.classList.remove('hidden');
+                btn.innerText = "دووبارە سکان بکەرەوە";
+                startDetection();
             } catch (err) {
-                alert("تکایە ڕێگە بە بەکارهێنانی کامێرا بدە.");
+                alert("ڕێگەت نەدا بە کامێراکە!");
             }
-        }
+        };
 
-        function updateUI(message, color, progress = 0) {
-            statusText.innerText = message;
-            statusText.style.color = color;
-            frame.style.borderColor = progress > 0 ? color : 'rgba(255,255,255,0.2)';
-            corners.forEach(c => c.style.borderColor = progress > 0 ? color : 'rgba(255,255,255,0.5)');
+        function startDetection() {
+            let src = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
+            let gray = new cv.Mat();
+            let blurred = new cv.Mat();
+            let thresh = new cv.Mat();
+            let contours = new cv.PolyVector();
+            let hierarchy = new cv.Mat();
             
-            progressBar.style.width = `${progress}%`;
-            progressBar.style.backgroundColor = color;
-        }
+            isProcessing = true;
+            const cap = new cv.VideoCapture(video);
 
-        function analyzeVideo() {
-            if (!isCapturing) return;
-
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                ctx.drawImage(video, 0, 0, motionCanvas.width, motionCanvas.height);
-                const frameData = ctx.getImageData(0, 0, motionCanvas.width, motionCanvas.height).data;
-
-                let totalBrightness = 0;
-                let motionDiff = 0;
-                let pixels = frameData.length / 4;
-
-                // ١. دۆزینەوەی تێکڕای ڕووناکی
-                for (let i = 0; i < frameData.length; i += 4) {
-                    let brightness = (frameData[i] + frameData[i+1] + frameData[i+2]) / 3;
-                    totalBrightness += brightness;
-                }
-                let avgBrightness = totalBrightness / pixels;
-
-                // ٢. دۆزینەوەی کۆنتراست (بۆ دڵنیابوون لە هەبوونی دۆکومێنت)
-                let varianceSum = 0;
-                for (let i = 0; i < frameData.length; i += 4) {
-                    let brightness = (frameData[i] + frameData[i+1] + frameData[i+2]) / 3;
-                    varianceSum += Math.abs(brightness - avgBrightness);
-                    
-                    if (previousFrameData) {
-                        motionDiff += Math.abs(frameData[i] - previousFrameData[i]);
-                    }
-                }
+            function processFrame() {
+                if (!isProcessing) return;
                 
-                let contrast = varianceSum / pixels;
-                let motion = previousFrameData ? (motionDiff / pixels) : 100;
+                cap.read(src);
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
+                cv.Canny(blurred, thresh, 75, 200);
+                cv.findContours(thresh, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
-                // ٣. لۆژیکی بڕیاردان
-                if (contrast < CONTRAST_THRESHOLD) {
-                    // هیچ دۆکومێنتێک یان نووسینێک لەبەر کامێراکە نییە
-                    stillnessCounter = 0;
-                    updateUI("دۆکومێنتێک بخەرە بەردەم کامێراکە", "#f97316", 0);
-                } 
-                else if (motion > MOTION_THRESHOLD) {
-                    // کامێراکە یان دەستت دەجوڵێت
-                    stillnessCounter = 0;
-                    updateUI("کامێراکە جێگیر بکە", "#eab308", 0);
-                } 
-                else {
-                    // دۆکومێنت هەیە و دەستیشت جێگیرە -> دەست بکە بە ژماردن
-                    stillnessCounter++;
-                    let percentage = Math.min((stillnessCounter / REQUIRED_FRAMES) * 100, 100);
-                    
-                    if (percentage < 100) {
-                        updateUI("جێگیرە... مەجوڵێ", "#38bdf8", percentage); // شینی کاڵ
-                    }
+                let docDetected = false;
+                for (let i = 0; i < contours.size(); ++i) {
+                    let cnt = contours.get(i);
+                    let area = cv.contourArea(cnt);
+                    if (area > 15000) { // تەنها ڕووبەری گەورە
+                        let peri = cv.arcLength(cnt, true);
+                        let approx = new cv.Mat();
+                        cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
 
-                    if (stillnessCounter >= REQUIRED_FRAMES) {
-                        captureHighResPhoto();
-                        return; // وەستاندنی لووپەکە
+                        if (approx.rows === 4) { // ئەگەر چوارگۆشە بوو
+                            docDetected = true;
+                            cv.drawContours(src, contours, i, new cv.Scalar(0, 255, 0, 255), 4);
+                        }
+                        approx.delete();
                     }
                 }
 
-                previousFrameData = new Uint8ClampedArray(frameData);
+                if (docDetected) {
+                    stillnessFrames++;
+                    badge.innerText = `دۆکومێنت ناسرایەوە (${Math.round(stillnessFrames/40*100)}%)`;
+                    badge.className = "text-xs bg-green-500/20 text-green-400 px-3 py-1 rounded-full border border-green-500/50";
+                    if (stillnessFrames >= 40) {
+                        capture(src);
+                        isProcessing = false;
+                    }
+                } else {
+                    stillnessFrames = 0;
+                    badge.innerText = "بەدوای دۆکومێنتدا دەگەڕێم...";
+                    badge.className = "text-xs bg-white/10 px-3 py-1 rounded-full border border-white/20";
+                }
+
+                cv.imshow('canvasOutput', src);
+                requestAnimationFrame(processFrame);
             }
-            animationId = requestAnimationFrame(analyzeVideo);
+            processFrame();
         }
 
-        function captureHighResPhoto() {
-            isCapturing = false;
-            cancelAnimationFrame(animationId);
-            
-            // ئیفێکتی وێنەگرتن
-            updateUI("وێنەکە گیرا!", "#4ade80", 100); // سەوز
-            frame.style.backgroundColor = "rgba(255, 255, 255, 0.8)";
-            setTimeout(() => { frame.style.backgroundColor = "transparent"; }, 150);
-
-            // دروستکردنی وێنەکە بە بەرزترین کوالێتی
-            const finalCanvas = document.createElement('canvas');
-            finalCanvas.width = video.videoWidth;
-            finalCanvas.height = video.videoHeight;
-            finalCanvas.getContext('2d').drawImage(video, 0, 0);
-            
-            resultImg.src = finalCanvas.toDataURL('image/jpeg', 0.95);
+        function capture(mat) {
+            cv.imshow('canvasOutput', mat); // پیشاندانی کۆتا فریم
+            const dataUrl = canvasOutput.toDataURL('image/jpeg');
+            resultImg.src = dataUrl;
             resultImg.classList.remove('hidden');
-            
-            // کوژاندنەوەی کامێرا
-            stream.getTracks().forEach(track => track.stop());
-            video.classList.add('hidden');
-            frame.classList.add('hidden');
-            progressBarContainer.classList.add('hidden');
-            
-            startBtn.innerHTML = "سکانکردنی دووبارە";
-        }
-
-        function stopCamera() {
-            if(stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
-            }
-            isCapturing = false;
-            cancelAnimationFrame(animationId);
-            statusText.classList.add('hidden');
-            resultImg.classList.add('hidden');
-            progressBarContainer.classList.add('hidden');
-            frame.classList.add('hidden');
-            startBtn.innerHTML = "کردنەوەی کامێرا";
+            scanLine.classList.add('hidden');
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            badge.innerText = "وێنەکە بە سەرکەوتوویی گیرا";
         }
     </script>
 </body>
