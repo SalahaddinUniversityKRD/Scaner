@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Fluid Web UI - Auto Scanner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --blob-1: #ff0080;
+            --blob-2: #00f0ff;
+            --blob-3: #7000ff;
+            --blob-4: #ffcc00;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #050510;
+            overflow-x: hidden;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        .fluid-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            z-index: 0;
+            filter: blur(100px); 
+            transform: translate3d(0, 0, 0);
+        }
+
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            mix-blend-mode: screen;
+            opacity: 0.8;
+            animation: move-slow motion 20s infinite alternate ease-in-out;
+            will-change: transform;
+        }
+
+        .blob-1 { width: 60vw; height: 60vw; background: radial-gradient(circle, var(--blob-1) 0%, rgba(255,0,128,0) 70%); top: -10%; left: -10%; animation: float-1 25s infinite alternate ease-in-out; }
+        .blob-2 { width: 50vw; height: 50vw; background: radial-gradient(circle, var(--blob-2) 0%, rgba(0,240,255,0) 70%); bottom: -20%; right: -10%; animation: float-2 22s infinite alternate ease-in-out; }
+        .blob-3 { width: 70vw; height: 70vw; background: radial-gradient(circle, var(--blob-3) 0%, rgba(112,0,255,0) 70%); bottom: -30%; left: -20%; animation: float-3 28s infinite alternate ease-in-out; }
+        .blob-4 { width: 40vw; height: 40vw; background: radial-gradient(circle, var(--blob-4) 0%, rgba(255,204,0,0) 70%); top: 20%; right: 10%; animation: float-4 18s infinite alternate ease-in-out; }
+
+        @keyframes float-1 { 0% { transform: translate(0, 0) scale(1); } 33% { transform: translate(20vw, 15vh) scale(1.1); } 66% { transform: translate(-10vw, 30vh) scale(0.9); } 100% { transform: translate(15vw, -5vh) scale(1.05); } }
+        @keyframes float-2 { 0% { transform: translate(0, 0) scale(1); } 33% { transform: translate(-25vw, -20vh) scale(1.2); } 66% { transform: translate(15vw, -40vh) scale(0.8); } 100% { transform: translate(-10vw, -10vh) scale(1.1); } }
+        @keyframes float-3 { 0% { transform: translate(0, 0) scale(1); } 33% { transform: translate(30vw, -10vh) scale(0.9); } 66% { transform: translate(10vw, -30vh) scale(1.15); } 100% { transform: translate(-5vw, -5vh) scale(1); } }
+        @keyframes float-4 { 0% { transform: translate(0, 0) scale(1); } 33% { transform: translate(-15vw, 25vh) scale(1.2); } 66% { transform: translate(-35vw, 10vh) scale(0.9); } 100% { transform: translate(5vw, 15vh) scale(1.05); } }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .glass-highlight {
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
+        }
+
+        .btn-glass { transition: all 0.3s ease; }
+        .btn-glass:hover { background: rgba(255, 255, 255, 0.1); transform: translateY(-2px); box-shadow: 0 10px 40px -10px rgba(255,255,255,0.2); }
+
+        /* Scanner Frame Transition */
+        #scanner-frame { transition: all 0.4s ease-out; }
+        .frame-corner { transition: border-color 0.4s ease-out; }
+    </style>
+</head>
+<body class="text-white selection:bg-fuchsia-500 selection:text-white">
+
+    <div class="fluid-bg" id="parallax-bg">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+        <div class="blob blob-4"></div>
+    </div>
+
+    <main class="relative z-10 min-h-screen flex flex-col p-4 md:p-8 xl:p-12 overflow-hidden">
+        
+        <header class="glass-panel w-full rounded-2xl md:rounded-3xl p-4 md:px-8 flex items-center justify-between z-20">
+            <div class="glass-highlight"></div>
+            <div class="flex items-center gap-4 group cursor-pointer">
+                <div class="w-12 h-12 md:w-16 md:h-16 rounded-full bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-amber-400 p-[2px]">
+                    <div class="w-full h-full rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/20">
+                        <svg class="w-6 h-6 md:w-8 md:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <span class="text-xl md:text-2xl font-light tracking-widest uppercase hidden sm:block">Smart<span class="font-bold">Scan</span></span>
+            </div>
+        </header>
+
+        <section class="flex-1 flex flex-col lg:flex-row items-center justify-center gap-12 mt-8 md:mt-12 z-10 w-full max-w-7xl mx-auto">
+            
+            <div class="flex-1 flex flex-col items-start justify-center space-y-6 md:space-y-8 w-full pr-0 lg:pr-12">
+                <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-panel border border-white/20 text-xs font-semibold tracking-wider text-cyan-300">
+                    <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                    AUTO-CAPTURE V1.0
+                </div>
+                <h1 class="text-5xl md:text-6xl font-bold leading-tight tracking-tighter">
+                    سکانکردنی دۆکومێنت بە <br>
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-fuchsia-400 to-amber-300">ژیرانە.</span>
+                </h1>
+                <p class="text-lg text-white/60 font-light max-w-xl leading-relaxed">
+                    کامێراکە بکەرەوە و ڕووی بکەرە دۆکومێنتەکە. کاتێک دەستت جێگیر دەبێت، سیستەمەکە خۆکارانە وێنەکە دەگرێت بەبێ لێدانی هیچ دوگمەیەک.
+                </p>
+                <button id="start-btn" class="btn-glass px-8 py-4 rounded-xl font-semibold bg-white text-black hover:bg-gray-200 shadow-[0_0_20px_rgba(255,255,255,0.3)] flex items-center gap-2">
+                    کردنەوەی کامێرا
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
+                </button>
+            </div>
+
+            <div class="flex-1 w-full max-w-lg relative perspective-1000">
+                <div class="absolute -top-10 -right-10 w-32 h-32 bg-cyan-500/30 rounded-full blur-2xl animate-pulse"></div>
+                
+                <div class="glass-panel w-full aspect-[3/4] rounded-3xl p-4 flex flex-col gap-4 border-t border-l border-white/30 transform transition-transform duration-700 hover:scale-[1.02]">
+                    <div class="glass-highlight"></div>
+                    
+                    <div class="relative w-full flex-1 rounded-2xl bg-black/50 overflow-hidden flex items-center justify-center">
+                        <video id="camera-feed" class="absolute inset-0 w-full h-full object-cover hidden" playsinline autoplay></video>
+                        
+                        <div id="scanner-frame" class="relative z-10 w-4/5 h-4/5 border-2 border-white/20 hidden">
+                            <div class="frame-corner absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-white/70"></div>
+                            <div class="frame-corner absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-white/70"></div>
+                            <div class="frame-corner absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-white/70"></div>
+                            <div class="frame-corner absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-white/70"></div>
+                        </div>
+
+                        <img id="captured-result" class="absolute inset-0 w-full h-full object-contain hidden z-20 bg-black/80" />
+
+                        <div class="absolute bottom-6 z-30 flex justify-center w-full">
+                            <span id="status-text" class="px-5 py-2 rounded-full glass-panel text-sm font-medium tracking-wide text-white/80 hidden border border-white/20">
+                                چاوەڕێی کامێرا...
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        const startBtn = document.getElementById('start-btn');
+        const video = document.getElementById('camera-feed');
+        const frame = document.getElementById('scanner-frame');
+        const corners = document.querySelectorAll('.frame-corner');
+        const statusText = document.getElementById('status-text');
+        const resultImg = document.getElementById('captured-result');
+        
+        // Hidden canvas for motion detection
+        const motionCanvas = document.createElement('canvas');
+        const ctx = motionCanvas.getContext('2d', { willReadFrequently: true });
+        
+        let stream = null;
+        let isCapturing = false;
+        let previousFrameData = null;
+        let stillnessFrames = 0;
+        let animationId = null;
+
+        // Settings for motion detection
+        const MOTION_THRESHOLD = 15; // چەندە کەمتر بێت، هەستیارتر دەبێت بە جوڵە
+        const FRAMES_TO_WAIT = 25;   // ژمارەی ئەو فریمەی پێویستە جێگیر بێت (نزیکەی 1 چرکە)
+
+        startBtn.addEventListener('click', async () => {
+            if (isCapturing) {
+                resetScanner();
+            } else {
+                await initCamera();
+            }
+        });
+
+        async function initCamera() {
+            try {
+                // Request back camera
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } 
+                });
+                
+                video.srcObject = stream;
+                video.classList.remove('hidden');
+                frame.classList.remove('hidden');
+                statusText.classList.remove('hidden');
+                resultImg.classList.add('hidden');
+                statusText.innerText = "تکایە دەستت جێگیر بکە...";
+                startBtn.innerHTML = "وەستاندنی سکانەر";
+                
+                isCapturing = true;
+                stillnessFrames = 0;
+                previousFrameData = null;
+
+                video.onloadedmetadata = () => {
+                    // Downscale canvas for faster motion processing
+                    motionCanvas.width = video.videoWidth / 8;
+                    motionCanvas.height = video.videoHeight / 8;
+                    detectMotion();
+                };
+
+            } catch (err) {
+                alert("نەتوانرا کامێراکە بکرێتەوە! دڵنیابە لەوەی ڕێپێدانت داوە.");
+                console.error(err);
+            }
+        }
+
+        function detectMotion() {
+            if (!isCapturing) return;
+
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                // Draw current frame to hidden canvas
+                ctx.drawImage(video, 0, 0, motionCanvas.width, motionCanvas.height);
+                const currentFrameData = ctx.getImageData(0, 0, motionCanvas.width, motionCanvas.height).data;
+
+                if (previousFrameData) {
+                    let diff = 0;
+                    // Compare pixels (Check every 4th value which is the Red channel for speed)
+                    for (let i = 0; i < currentFrameData.length; i += 4) {
+                        diff += Math.abs(currentFrameData[i] - previousFrameData[i]);
+                    }
+                    
+                    let averageDiff = diff / (currentFrameData.length / 4);
+
+                    if (averageDiff < MOTION_THRESHOLD) {
+                        stillnessFrames++;
+                        // Visual feedback: getting closer to capturing
+                        if(stillnessFrames > FRAMES_TO_WAIT / 2) {
+                            setFrameColor('#facc15'); // Yellow (amber-400)
+                            statusText.innerText = "وا دەگیرێت...";
+                        }
+                    } else {
+                        // Movement detected, reset counter
+                        stillnessFrames = 0;
+                        setFrameColor('rgba(255, 255, 255, 0.7)'); // Default white
+                        statusText.innerText = "تکایە دەستت جێگیر بکە...";
+                    }
+
+                    // Condition met: capture!
+                    if (stillnessFrames >= FRAMES_TO_WAIT) {
+                        takePicture();
+                        return; // Stop loop
+                    }
+                }
+                previousFrameData = new Uint8ClampedArray(currentFrameData);
+            }
+            animationId = requestAnimationFrame(detectMotion);
+        }
+
+        function setFrameColor(color) {
+            frame.style.borderColor = color.includes('rgba') ? 'rgba(255,255,255,0.2)' : color;
+            corners.forEach(corner => {
+                corner.style.borderColor = color;
+            });
+        }
+
+        function takePicture() {
+            isCapturing = false;
+            cancelAnimationFrame(animationId);
+            
+            // Flash effect
+            frame.style.backgroundColor = "rgba(255,255,255,0.5)";
+            setTimeout(() => { frame.style.backgroundColor = "transparent"; }, 100);
+
+            setFrameColor('#4ade80'); // Green
+            statusText.innerText = "وێنەکە گیرا!";
+            statusText.style.color = '#4ade80';
+
+            // Draw full resolution image
+            const captureCanvas = document.createElement('canvas');
+            captureCanvas.width = video.videoWidth;
+            captureCanvas.height = video.videoHeight;
+            captureCanvas.getContext('2d').drawImage(video, 0, 0);
+            
+            // Show result
+            resultImg.src = captureCanvas.toDataURL('image/jpeg');
+            resultImg.classList.remove('hidden');
+            
+            // Stop camera to save battery
+            stream.getTracks().forEach(track => track.stop());
+            video.classList.add('hidden');
+            frame.classList.add('hidden');
+            startBtn.innerHTML = "سکانکردنی دووبارە";
+        }
+
+        function resetScanner() {
+            if(stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            isCapturing = false;
+            statusText.style.color = '';
+            statusText.classList.add('hidden');
+            resultImg.classList.add('hidden');
+            startBtn.innerHTML = "کردنەوەی کامێرا";
+        }
+    </script>
+</body>
+</html>
